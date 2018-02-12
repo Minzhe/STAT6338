@@ -1,0 +1,25 @@
+---
+title: "Project1"
+author: "Minzhe Zhang"
+date: "2018/2/11"
+output: html_document
+---
+
+```{r}
+### read data
+senic.data <- read.csv("senic.csv")
+```
+
+### Question 1
+H0: mean infection risk is the same in the four geographic regions.<br>
+Ha: mean infection risk is not all equal in the four geographic regions.<br>
+Conclusion: mean infection risk is not all equal in the four geographic regions.
+```{r}
+anova.model <- aov(infprob ~ region, data = senic.data)
+summary(anova.model)
+```
+
+### Question 2
+```{r}
+T.term <- 1/sqrt(2)*qtukey(0.9, nmeans = 4, df = 113 - 4)
+```

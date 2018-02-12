@@ -1,0 +1,110 @@
+---
+title: "HW2"
+author: "Minzhe Zhang"
+date: "2018/2/6"
+output: html_document
+---
+
+### Question 16.7
+#### a)
+```{r}
+library(ggplot2)
+low <- c(7.6, 8.2, 6.8, 5.8, 6.9, 6.6, 6.3, 7.7, 6.0)
+moderate <- c(6.7, 8.1, 9.4, 8.6, 7.8, 7.7, 8.9, 7.9, 8.3, 8.7, 7.1, 8.4)
+high <- c(8.5, 9.7, 10.1, 7.8, 9.6, 9.5)
+group <- factor(c(rep("low", 9), rep("moderate", 12), rep("high", 6)), levels = c("low", "moderate", "high"))
+prod.data <- data.frame(productivity = c(low, moderate, high), group = group)
+p <- ggplot(data = prod.data, aes(x = group, y = productivity)) + geom_point()
+plot(p)
+```
+
+#### b)
+```{r}
+mean.low <- mean(low)
+mean.moderate <- mean(moderate)
+mean.high <- mean(high)
+print(c(mean.low, mean.moderate, mean.high))
+```
+
+#### c)
+```{r}
+res.low <- low - mean.low
+res.moderate <- moderate - mean.moderate
+res.high <- high - mean.high
+print(res.low)
+print(res.moderate)
+print(res.high)
+sum(c(res.low, res.moderate, res.high))
+```
+
+#### d)
+```{r}
+anova.model <- aov(productivity ~ group, data = prod.data)
+summary(anova.model)
+```
+
+#### e)
+```{r}
+qf(0.95, 2, 24, lower.tail = TRUE)
+```
+
+### f)
+```{r}
+pf(15.72, 2, 24, lower.tail = FALSE)
+```
+
+### Question 16.8
+#### a)
+```{r}
+blue <- c(28, 26, 31, 27, 35)
+green <- c(34, 29, 25, 31, 29)
+orange <- c(31, 25, 27, 29, 28)
+group <- factor(rep(c("blue", "green", "orange"), each = 5), levels = c("blue", "green", "orange"))
+resp.data <- data.frame(response = c(blue, green, orange), group = group)
+p <- ggplot(data = resp.data, aes(x = group, y = response)) + geom_point()
+plot(p)
+```
+
+#### b)
+```{r}
+mean.blue <- mean(blue)
+mean.green <- mean(green)
+mean.orange <- mean(orange)
+print(c(mean.blue, mean.green, mean.orange))
+```
+
+#### c)
+```{r}
+res.blue <- blue - mean.blue
+res.green <- green - mean.green
+res.orange <- orange - mean.orange
+print(res.blue)
+print(res.green)
+print(res.orange)
+```
+
+#### d)
+```{r}
+anova.model <- aov(response ~ group, data = resp.data)
+summary(anova.model)
+```
+
+#### e)
+```{r}
+qf(0.90, 2, 12, lower.tail = TRUE)
+```
+
+### Question 16.18
+#### c)
+```{r}
+Y <- c(low, moderate, high)
+X <- c(rep(c(1, 1, 0), 9), rep(c(1, 0, 1), 12), rep(c(1, -1, -1), 6))
+X <- matrix(X, ncol = 3, byrow = TRUE)
+lm.model <- lm(Y ~ X)
+summary(lm.model)
+```
+
+#### d)
+```{r}
+anova(lm.model)
+```
