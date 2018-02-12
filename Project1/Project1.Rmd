@@ -8,18 +8,137 @@ output: html_document
 ```{r}
 ### read data
 senic.data <- read.csv("senic.csv")
+senic.data$region.factor <- as.factor(senic.data$region)
 ```
 
 ### Question 1
+#### a)
 H0: mean infection risk is the same in the four geographic regions.<br>
 Ha: mean infection risk is not all equal in the four geographic regions.<br>
 Conclusion: mean infection risk is not all equal in the four geographic regions.
 ```{r}
-anova.model <- aov(infprob ~ region, data = senic.data)
+anova.model <- aov(infprob ~ region.factor, data = senic.data)
 summary(anova.model)
 ```
 
-### Question 2
+#### b)
+Conclusion: Based on Tukey procedure, group mean between region 1 and 3 is significant, others are all non significant.
 ```{r}
 T.term <- 1/sqrt(2)*qtukey(0.9, nmeans = 4, df = 113 - 4)
+mse <- summary(anova.model)[[1]]$`Mean Sq`[2]
+inf.count <- aggregate(list(count = senic.data$infprob), by = list(region = senic.data$region), FUN = length)
+inf.mean <- aggregate(list(inf.mean = senic.data$infprob), by = list(region = senic.data$region), FUN = mean)
+inf.group <- merge(inf.count, inf.mean, by = "region")
+diff.inter <- data.frame(t(combn(1:4, 2)), mean = rep(NA, 6), var = rep(NA, 6), left.tukey = rep(NA, 6), right.tukey = rep(NA, 6))
+for (i in 1:4) for (j in i:4) {
+      k <- diff.inter$X1 == i & diff.inter$X2 == j
+      diff.inter$mean[k] <- abs(inf.group$inf.mean[i] - inf.group$inf.mean[j])
+      diff.inter$var[k] <- sqrt(mse * (1/inf.group$count[i] + 1/inf.group$count[j]))
+      diff.inter$left.tukey[k] <- diff.inter$mean[k] - T.term * diff.inter$var[k]
+      diff.inter$right.tukey[k] <- diff.inter$mean[k] + T.term * diff.inter$var[k]
+}
+diff.inter
+nonsig.line <- function(comp.list) {
+      height <- 0.95
+      for(item in comp.list) {
+            x0 <- inf.group$inf.mean[item[1]]; x1 <- inf.group$inf.mean[item[2]]
+            y0 <- y1 <- height; height <- height - 0.05
+            segments(x0, y0, x1, y1, col = "red", lwd = 2)
+      }
+}
+plot(inf.group$inf.mean, c(1,1,1,1), pch = 19, ylim = c(0.7, 1.1), yaxt = "n", xlab = "mean infection risk", ylab = "")
+text(inf.group$inf.mean, rep(1.05, 4), c("1", "2", "3", "4"))
+nonsig.line(list(c(3,4), c(3,2), c(4,2), c(4,1), c(2,1)))
 ```
+
+#### c)
+Using Scheffe procedure, conclusion is same as Tukey, group mean between region 1 and 3 is significant, others are all non significant.
+```{r}
+S.term <- sqrt((4 - 1) * qf(0.9, df1 = 4 - 1, df2 = 113 - 4))
+diff.inter <- data.frame(diff.inter, left.scheffe = rep(NA, 6), right.scheffe = rep(NA, 6))
+for (i in 1:4) for (j in i:4) {
+      k <- diff.inter$X1 == i & diff.inter$X2 == j
+      diff.inter$left.scheffe[k] <- diff.inter$mean[k] - S.term * diff.inter$var[k]
+      diff.inter$right.scheffe[k] <- diff.inter$mean[k] + S.term * diff.inter$var[k]
+}
+diff.inter[,-c(5,6)]
+```
+
+### Question 2
+H0: There is no significant difference of mean infection risk between different age groups.<br>
+Ha: Not all age groups have same mean infection risk.<br>
+p value is 0.805, greater than the significance level 0.1.<br>
+Conclusion: Meaninfection risk does not differs for the four age groups.
+```{r}
+senic.data$age.group <- cut(senic.data$age, breaks = c(0, 50, 55, 60, Inf))
+anova.model.2 <- aov(infprob ~ age.group, data = senic.data)
+F.value <- summary(anova.model.2)[[1]]$`F value`[1]
+p.value <- pf(F.value, df1 = 4 - 1, df2 = 113 - 4, lower.tail = FALSE)
+summary(anova.model.2)
+```
+
+### Question 3
+#### a)
+There may be two outliers in region 1.
+```{r}
+anova.model.3 <- aov(stay ~ region.factor, data = senic.data)
+plot(anova.model.3$residuals, senic.data$region, xlab = "Residuals", ylab = "Region")
+```
+
+#### b)
+p.value is smaller than significance level 0.05, variance is not contant among different groups.
+```{r}
+suppressWarnings(library(onewaytests))
+bf.test(stay ~ region.factor, data = senic.data)
+```
+
+#### c)
+Sigma divided by mean square gives the most stable result. So reciprocal transformation is probably the most appropriate one.
+```{r}
+stay.mean <- aggregate(list(stay.mean = senic.data$stay), by = list(region =  senic.data$region), FUN = mean)
+stay.var <- aggregate(list(stay.var = senic.data$stay), by = list(region =  senic.data$region), FUN = var)
+stay.group <- merge(stay.mean, stay.var, by = "region")
+stay.group$var.d.mean <- apply(stay.group[,c(2,3)], 1, FUN = function(x) x[2]/x[1])
+stay.group$sigma.d.mean <- apply(stay.group[,c(2,3)], 1, FUN = function(x) sqrt(x[2])/x[1])
+stay.group$var.d.mean2 <- apply(stay.group[,c(2,3)], 1, FUN = function(x) sqrt(x[2])/x[1]^2)
+stay.group
+```
+
+#### d)
+Based on Box-Cox procedure, lambda = -1, a reciprocal transformation is reasonable.
+```{r}
+lambdas <- seq(-1, 1, 0.1)
+box.procedure <- function(values, groups, lambdas) {
+      SSE <- rep(NA, length(lambdas))
+      for (i in 1:length(lambdas)) {
+            lambda <- lambdas[i]
+            K2 <- prod(values)^(1/length(values))
+            K1 <- 1 / (lambda * K2^(lambda-1))
+            if (lambda != 0) W <- K1 * (values^lambda - 1)
+            else W <- K2 * log(values)
+            ### anova
+            tmp.anova <- aov(W ~ groups)
+            SSE[i] <- summary(tmp.anova)[[1]]$`Sum Sq`[2]
+      }
+      return(data.frame(lambdas = lambdas, SSE = SSE))
+}
+box.table <- box.procedure(values = senic.data$stay, groups = senic.data$region.factor, lambdas = lambdas)
+box.table
+```
+
+#### e)
+```{r}
+senic.data$stay.recip <- 1/senic.data$stay
+anova.model.3.1 <- aov(stay.recip ~ region.factor, data = senic.data)
+plot(anova.model.3.1$residuals, senic.data$region, xlab = "Residuals", ylab = "Region")
+```
+
+#### f)
+The variance is still not equal on transfomed response.
+```{r}
+bf.test(stay.recip ~ region.factor, data = senic.data)
+```
+
+
+
+
